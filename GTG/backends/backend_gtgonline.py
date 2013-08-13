@@ -170,6 +170,7 @@ class Backend(PeriodicImportBackend):
         self.quit(disable=True)
         
     def do_periodic_import(self, ):
+        # Start working on this
         print "Importing ..."
         
     def save_state(self):
