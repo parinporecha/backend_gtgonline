@@ -29,7 +29,13 @@ import threading
 import datetime
 import subprocess
 import exceptions
+import urllib
+import urllib2
+import json
+import cookielib
+
 from dateutil.tz import tzutc, tzlocal
+from lxml import html
 
 from GTG.backends.genericbackend import GenericBackend
 from GTG import _
@@ -104,3 +110,57 @@ class Backend(PeriodicImportBackend):
             else:
                 gtg_titles_dic[gtg_task.get_title()] = [tid]
         print "titles dic = " + str(gtg_titles_dic)
+        login_url = "http://gtgonline-parinporecha.rhcloud.com/user/auth_gtg/"
+        hdr = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Referer': login_url}
+        
+        proxy = os.environ.get('http_proxy')
+        print "proxy = " + str(proxy)
+        #proxy = urllib2.ProxyHandler({'http': proxy})
+        #opener = urllib2.build_opener(proxy)
+        #urllib2.install_opener(opener)
+        
+        #cj = cookielib.CookieJar()
+
+        #opener = urllib2.build_opener(
+            #urllib2.HTTPCookieProcessor(cj), 
+        #)
+        
+        #login_form = opener.open("http://gtgonline-parinporecha.rhcloud.com/user/landing/").read()
+        #csrf_token = html.fromstring(login_form).xpath(
+            #'//input[@name="csrfmiddlewaretoken"]/@value'
+        #)[0]
+        #print "csrf token = " + csrf_token
+        
+        self.try_auth(login_url)
+        print "returned here"
+            
+    def try_auth(self, login_url):
+        params = {"email": self._parameters["username"], "password": self._parameters["password"],}
+        try:
+            data = urllib.urlencode(params)
+            print "data = " + data
+            request = urllib2.Request(login_url, data)
+            page = urllib2.urlopen(request)
+            content = page.read()
+            print "content = " + content
+            if content == '0':
+                self.auth_has_failed()
+        except urllib2.HTTPError, e:
+            print "error = " + e.fp.read()
+    
+    def auth_has_failed(self):
+        """
+        Provided credentials are not valid.
+        Disable this instance and show error to user
+        """
+        #Log.error('Failed to authenticate')
+        BackendSignals().backend_failed(self.get_id(),
+                        BackendSignals.ERRNO_AUTHENTICATION)
+        self.quit(disable=True)
+        
+    def do_periodic_import(self, ):
+        print "Importing ..."
+        
+    def save_state(self):
+        '''Saves the state of the synchronization'''
+        self._store_pickled_file(self.data_path, self.sync_engine)
