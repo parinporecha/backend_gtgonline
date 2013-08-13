@@ -29,8 +29,7 @@ import threading
 import datetime
 import subprocess
 import exceptions
-import urllib
-import urllib2
+import requests
 import json
 import cookielib
 
@@ -79,6 +78,14 @@ class Backend(PeriodicImportBackend):
             GenericBackend.PARAM_DEFAULT_VALUE: 5, },
     }
     
+    # USE BELOW ONLY IF ACCESSING LOCALHOST INSIDE CAMPUS
+    NO_PROXY = {'no': 'pass'}
+    
+    BASE_URL = "http://localhost:8000/"
+    URLS = {
+        'auth': BASE_URL + 'user/auth_gtg/',
+    }
+    
     def __init__(self, params):
         """ Constructor of the object """
         super(Backend, self).__init__(params)
@@ -110,8 +117,7 @@ class Backend(PeriodicImportBackend):
             else:
                 gtg_titles_dic[gtg_task.get_title()] = [tid]
         print "titles dic = " + str(gtg_titles_dic)
-        login_url = "http://gtgonline-parinporecha.rhcloud.com/user/auth_gtg/"
-        hdr = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Referer': login_url}
+        #hdr = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Referer': login_url}
         
         proxy = os.environ.get('http_proxy')
         print "proxy = " + str(proxy)
@@ -131,22 +137,27 @@ class Backend(PeriodicImportBackend):
         #)[0]
         #print "csrf token = " + csrf_token
         
-        self.try_auth(login_url)
+        self.try_auth()
         print "returned here"
             
-    def try_auth(self, login_url):
-        params = {"email": self._parameters["username"], "password": self._parameters["password"],}
-        try:
-            data = urllib.urlencode(params)
-            print "data = " + data
-            request = urllib2.Request(login_url, data)
-            page = urllib2.urlopen(request)
-            content = page.read()
-            print "content = " + content
-            if content == '0':
-                self.auth_has_failed()
-        except urllib2.HTTPError, e:
-            print "error = " + e.fp.read()
+    def try_auth(self):
+        params = {"email": self._parameters["username"],
+                  "password": self._parameters["password"],}
+        auth_response = requests.post(self.URLS['auth'], \
+                                      params, proxies = self.NO_PROXY)
+        if auth_response.text != '1':
+            self.auth_has_failed()
+        #try:
+        #    data = urllib.urlencode(params)
+        #    print "data = " + data
+        #    request = urllib2.Request(login_url, data)
+        #    page = urllib2.urlopen(request)
+        #    content = page.read()
+        #    print "content = " + content
+        #    if content == '0':
+        #        self.auth_has_failed()
+        #except urllib2.HTTPError, e:
+        #    print "error = " + e.fp.read()
     
     def auth_has_failed(self):
         """
