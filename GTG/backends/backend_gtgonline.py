@@ -174,8 +174,10 @@ class Backend(PeriodicImportBackend):
     def do_periodic_import(self, ):
         # Start working on this
         print "Importing ..."
-        self.fetch_tasks_from_server()
-        self.fetch_tags_from_server()
+        tasks = self.fetch_tasks_from_server()
+        self.process_tasks(tasks)
+        tags = self.fetch_tags_from_server()
+        self.process_tags(tags)
         
     def save_state(self):
         '''Saves the state of the synchronization'''
@@ -189,6 +191,9 @@ class Backend(PeriodicImportBackend):
                                       params, proxies = self.NO_PROXY)
         print "response received = " + tasks.text
     
+    def process_tasks(self, tasks):
+        print "Tasks = " + str(tasks)
+    
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
         params = {"email": self._parameters["username"],
@@ -196,3 +201,7 @@ class Backend(PeriodicImportBackend):
         tags = requests.post(self.URLS['tags'], \
                                       params, proxies = self.NO_PROXY)
         print "response received = " + tags.text
+    
+    def process_tags(self, tags):
+        print "Tags = " + str(tags)
+    
