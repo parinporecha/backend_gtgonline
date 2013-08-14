@@ -189,7 +189,7 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         tasks = requests.post(self.URLS['tasks'], \
                                       params, proxies = self.NO_PROXY)
-        print "response received = " + tasks.text
+        print "response received = " + str(tasks.json)
     
     def process_tasks(self, tasks):
         print "Tasks = " + str(tasks)
@@ -200,7 +200,7 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         tags = requests.post(self.URLS['tags'], \
                                       params, proxies = self.NO_PROXY)
-        print "response received = " + tags.text
+        print "response received = " + str(tags.json)
     
     def process_tags(self, tags):
         print "Tags = " + str(tags)
