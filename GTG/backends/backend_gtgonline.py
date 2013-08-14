@@ -84,6 +84,8 @@ class Backend(PeriodicImportBackend):
     BASE_URL = "http://localhost:8000/"
     URLS = {
         'auth': BASE_URL + 'user/auth_gtg/',
+        'tasks': BASE_URL + 'tasks/serial/',
+        'tags': BASE_URL + 'tags/all/',
     }
     
     def __init__(self, params):
@@ -172,7 +174,25 @@ class Backend(PeriodicImportBackend):
     def do_periodic_import(self, ):
         # Start working on this
         print "Importing ..."
+        self.fetch_tasks_from_server()
+        self.fetch_tags_from_server()
         
     def save_state(self):
         '''Saves the state of the synchronization'''
         self._store_pickled_file(self.data_path, self.sync_engine)
+        
+    def fetch_tasks_from_server(self, ):
+        print "Fetching tasks started ..."
+        params = {"email": self._parameters["username"],
+                  "password": self._parameters["password"],}
+        tasks = requests.post(self.URLS['tasks'], \
+                                      params, proxies = self.NO_PROXY)
+        print "response received = " + tasks.text
+    
+    def fetch_tags_from_server(self, ):
+        print "Fetching tags started ..."
+        params = {"email": self._parameters["username"],
+                  "password": self._parameters["password"],}
+        tags = requests.post(self.URLS['tags'], \
+                                      params, proxies = self.NO_PROXY)
+        print "response received = " + tags.text
