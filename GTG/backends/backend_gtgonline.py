@@ -84,7 +84,10 @@ class Backend(PeriodicImportBackend):
     BASE_URL = "http://localhost:8000/"
     URLS = {
         'auth': BASE_URL + 'user/auth_gtg/',
-        'tasks': BASE_URL + 'tasks/serial/',
+        'tasks': {
+            'get': BASE_URL + 'tasks/serial/',
+            'new': BASE_URL + 'tasks/new/',
+        },
         'tags': BASE_URL + 'tags/all/',
     }
     
@@ -187,12 +190,58 @@ class Backend(PeriodicImportBackend):
         print "Fetching tasks started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
-        tasks = requests.post(self.URLS['tasks'], \
+        tasks = requests.post(self.URLS['tasks']['get'], \
                                       params, proxies = self.NO_PROXY)
         print "response received = " + str(tasks.json)
+        return tasks.json
     
-    def process_tasks(self, tasks):
-        print "Tasks = " + str(tasks)
+    def process_tasks(self, remote_tasks):
+        print "Tasks = " + str(remote_tasks)
+        print "Backend id = " + self.get_id()
+        
+        local_tasks = self.datastore.get_all_tasks()
+        gtg_titles_dic = {}
+        remote_add = []
+        update = []
+        remote_delete = []
+        server_ids = [task['id'] for task in remote_tasks]
+        print "server ids = " + str(server_ids)
+        
+        for tid in local_tasks:
+            gtg_task = self.datastore.get_task(tid)
+            #if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
+                #print "NOT SYNCABLE = " + gtg_task.get_title()
+                #continue
+            remote_ids = gtg_task.get_remote_ids()
+            print "Remote ids for " + tid + " = " + str(remote_ids)
+            web_id = remote_ids.get(self.get_id(), None)
+            if web_id == None:
+                remote_add.append(gtg_task)
+            else:
+                if web_id in server_ids:
+                    update.append(gtg_task)
+                else:
+                    remote_delete.append(gtg_task)
+        
+        ids_dict = self.remote_add_tasks(remote_add)
+        print "Ids dict = " + str(ids_dict)
+        
+        print "Remote add = " + str(remote_add)
+        print "Update = " + str(update)
+        print "Remote delete = " + str(remote_delete)
+    
+    def remote_add_tasks(self, task_list):
+        print "Adding tasks started ..."
+        params = {
+            "email": self._parameters["username"],
+            "password": self._parameters["password"],
+            "task_list": task_list,
+        }
+        ids = requests.post(self.URLS['tasks']['add'], \
+                                      params, proxies = self.NO_PROXY)
+        print "ids received = " + str(ids.json)
+        #return ids.json
+        return {}
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
@@ -201,7 +250,7 @@ class Backend(PeriodicImportBackend):
         tags = requests.post(self.URLS['tags'], \
                                       params, proxies = self.NO_PROXY)
         print "response received = " + str(tags.json)
+        return tags.json
     
     def process_tags(self, tags):
         print "Tags = " + str(tags)
-    
