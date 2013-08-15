@@ -223,6 +223,7 @@ class Backend(PeriodicImportBackend):
                 else:
                     remote_delete.append(gtg_task)
         
+        remote_add = self.modify_tasks_for_gtgonline(remote_add)
         ids_dict = self.remote_add_tasks(remote_add)
         print "Ids dict = " + str(ids_dict)
         
@@ -230,15 +231,31 @@ class Backend(PeriodicImportBackend):
         print "Update = " + str(update)
         print "Remote delete = " + str(remote_delete)
     
+    def modify_tasks_for_gtgonline(self, task_list):
+        details = {}
+        for task in task_list:
+            details[task.get_id()] = {
+                'name': task.get_title(),
+                'description': self.strip_xml_tags(task.get_text()),
+                #'start_date': task.get_start_date(),
+                #'due_date': task.get_due_date(),
+                'status': task.get_status(),
+            }
+            #details.append()
+        print "Tasks Details = " + str(details)
+        return details
+    
     def remote_add_tasks(self, task_list):
         print "Adding tasks started ..."
+        print "Task list to send = " + json.dumps(task_list)
         params = {
             "email": self._parameters["username"],
             "password": self._parameters["password"],
             "task_list": task_list,
         }
-        ids = requests.post(self.URLS['tasks']['add'], \
-                                      params, proxies = self.NO_PROXY)
+        ids = requests.post(self.URLS['tasks']['new'], \
+                                      proxies = self.NO_PROXY, \
+                                      data = { key: str(value) for key, value in params.items() })
         print "ids received = " + str(ids.json)
         #return ids.json
         return {}
@@ -254,3 +271,10 @@ class Backend(PeriodicImportBackend):
     
     def process_tags(self, tags):
         print "Tags = " + str(tags)
+        
+    def strip_xml_tags(self, text):
+        text = text.replace('<content>', '')
+        text = text.replace('</content>', '')
+        text = text.replace('<tag>', '')
+        text = text.replace('</tag>', '')
+        return text
