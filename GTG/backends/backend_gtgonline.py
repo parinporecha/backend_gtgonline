@@ -224,8 +224,9 @@ class Backend(PeriodicImportBackend):
                     remote_delete.append(gtg_task)
         
         remote_add = self.modify_tasks_for_gtgonline(remote_add)
-        ids_dict = self.remote_add_tasks(remote_add)
-        print "Ids dict = " + str(ids_dict)
+        id_dict = self.remote_add_tasks(remote_add)
+        self.add_remote_id_to_local_tasks(id_dict)
+        print "Id dict = " + str(id_dict)
         
         print "Remote add = " + str(remote_add)
         print "Update = " + str(update)
@@ -237,9 +238,10 @@ class Backend(PeriodicImportBackend):
             details[task.get_id()] = {
                 'name': task.get_title(),
                 'description': self.strip_xml_tags(task.get_text()),
-                #'start_date': task.get_start_date(),
-                #'due_date': task.get_due_date(),
+                'start_date': '', #task.get_start_date(),
+                'due_date': '', #task.get_due_date(),
                 'status': task.get_status(),
+                'subtasks': [subt.get_id() for subt in task.get_subtasks()]
             }
             #details.append()
         print "Tasks Details = " + str(details)
@@ -251,14 +253,19 @@ class Backend(PeriodicImportBackend):
         params = {
             "email": self._parameters["username"],
             "password": self._parameters["password"],
-            "task_list": task_list,
+            "task_list": json.dumps(task_list),
         }
         ids = requests.post(self.URLS['tasks']['new'], \
                                       proxies = self.NO_PROXY, \
                                       data = { key: str(value) for key, value in params.items() })
         print "ids received = " + str(ids.json)
-        #return ids.json
-        return {}
+        return ids.json
+    
+    def add_remote_id_to_local_tasks(self, id_dict):
+        for key, value in id_dict.iteritems():
+            gtg_task = self.datastore.get_task(key)
+            gtg_task.add_remote_id(self.get_id(), value)
+            self.datastore.push_task(gtg_task)
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
