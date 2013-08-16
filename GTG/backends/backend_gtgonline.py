@@ -206,8 +206,12 @@ class Backend(PeriodicImportBackend):
         remote_add = []
         update = []
         remote_delete = []
-        server_ids = [task['id'] for task in remote_tasks]
-        print "server ids = " + str(server_ids)
+        #server_ids = [task['id'] for task in remote_tasks]
+        server_id_dict = {}
+        for task in remote_tasks:
+            server_id_dict[task['id']] = task
+        
+        print "server id dict = " + str(server_id_dict)
         
         for tid in local_tasks:
             gtg_task = self.datastore.get_task(tid)
@@ -220,8 +224,8 @@ class Backend(PeriodicImportBackend):
             if web_id == None:
                 remote_add.append(gtg_task)
             else:
-                if web_id in server_ids:
-                    update.append(gtg_task)
+                if web_id in server_id_dict.keys():
+                    process_update_scenario(gtg_task, server_id_dict[web_id])
                 else:
                     remote_delete.append(gtg_task)
         
