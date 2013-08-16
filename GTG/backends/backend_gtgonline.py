@@ -92,6 +92,10 @@ class Backend(PeriodicImportBackend):
     }
     
     CONVERT_24_HR = '%d/%m/%y'
+    CONVERT_24_HR_WITH_TIME = '%d/%m/%y %H:%M:%S'
+    
+    LOCAL = 0
+    REMOTE = 1
     
     def __init__(self, params):
         """ Constructor of the object """
@@ -206,10 +210,12 @@ class Backend(PeriodicImportBackend):
         remote_add = []
         update = []
         remote_delete = []
+        local_delete = []
         #server_ids = [task['id'] for task in remote_tasks]
         server_id_dict = {}
+        local_id_dict = {}
         for task in remote_tasks:
-            server_id_dict[task['id']] = task
+            server_id_dict[str(task['id'])] = task
         
         print "server id dict = " + str(server_id_dict)
         
@@ -221,22 +227,36 @@ class Backend(PeriodicImportBackend):
             remote_ids = gtg_task.get_remote_ids()
             print "Remote ids for " + tid + " = " + str(remote_ids)
             web_id = remote_ids.get(self.get_id(), None)
+            print "web_id = " + str(web_id) + " server keys = " + str(server_id_dict.keys())
             if web_id == None:
+                local_id_dict[tid] = gtg_task
                 remote_add.append(gtg_task)
             else:
+                local_id_dict[web_id] = gtg_task
                 if web_id in server_id_dict.keys():
-                    process_update_scenario(gtg_task, server_id_dict[web_id])
+                    print "Sending task to update scenario"
+                    self.process_update_scenario(gtg_task, \
+                                                 server_id_dict[web_id])
                 else:
-                    remote_delete.append(gtg_task)
+                    local_delete.append(gtg_task)
+        
+        print "*\n*\nLocal Id dict = " + str(local_id_dict) + "\n*\n*\n"
+        print "*\n*\nServer Id dict = " + str(server_id_dict) + "\n*\n*\n"
+        #server_diff_tasks = list(set(server_id_dict.keys()) - \
+                                #set(local_id_dict.keys()))
+        #local_diff_tasks = list(set(local_id_dict.keys()) - \
+                               #set(server_id_dict.keys()))
+        #common_tasks = list(set(server_id_dict.keys()).intersection(local_id_dict.keys()))
+        #print "SERVER New Tasks = "
         
         remote_add = self.modify_tasks_for_gtgonline(remote_add)
-        id_dict = self.remote_add_tasks(remote_add)
-        self.add_remote_id_to_local_tasks(id_dict)
-        print "Id dict = " + str(id_dict)
+        #id_dict = self.remote_add_tasks(remote_add)
+        #self.add_remote_id_to_local_tasks(id_dict)
+        #print "Id dict = " + str(id_dict)
         
         print "Remote add = " + str(remote_add)
         print "Update = " + str(update)
-        print "Remote delete = " + str(remote_delete)
+        print "Local delete = " + str(local_delete)
         
         self.save_state()
     
@@ -254,12 +274,12 @@ class Backend(PeriodicImportBackend):
                 'subtasks': [subt.get_id() for subt in task.get_subtasks()]
             }
             #details.append()
-        print "Tasks Details = " + str(details)
+        #print "Tasks Details = " + str(details)
         return details
     
     def remote_add_tasks(self, task_list):
         print "Adding tasks started ..."
-        print "Task list to send = " + json.dumps(task_list)
+        #print "Task list to send = " + json.dumps(task_list)
         params = {
             "email": self._parameters["username"],
             "password": self._parameters["password"],
@@ -268,7 +288,7 @@ class Backend(PeriodicImportBackend):
         ids = requests.post(self.URLS['tasks']['new'], \
                                       proxies = self.NO_PROXY, \
                                       data = { key: str(value) for key, value in params.items() })
-        print "ids received = " + str(ids.json)
+        #print "ids received = " + str(ids.json)
         return ids.json
     
     def add_remote_id_to_local_tasks(self, id_dict):
@@ -279,13 +299,35 @@ class Backend(PeriodicImportBackend):
                 self.datastore.push_task(gtg_task)
                 gtg_task.sync()
     
+    def process_update_scenario(self, local_task, remote_task):
+        task = self.get_latest_task(local_task, remote_task)
+        if task == local_task:
+            self.remote_update_task(local_task, remote_task['id'])
+        else:
+            self.local_update_task(remote_task, local_task.get_id())
+    
+    def get_latest_task(self, local_task, remote_task):
+        local_mod = local_task.get_modified()
+        remote_mod = self.str_to_datetime(remote_task['last_modified_date'])
+        print "local_mod = " + str(local_mod) + " remote_due = " + str(remote_mod)
+        
+        if local_mod < remote_mod:
+            print "Remote is Latest. Update Local"
+            return remote_task
+        else:
+            print "Local is Latest. Update Remote"
+            return local_task
+    
+    def remote_update_task(self, task, task_id):
+        pass
+    
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
         tags = requests.post(self.URLS['tags'], \
                                       params, proxies = self.NO_PROXY)
-        print "response received = " + str(tags.json)
+        #print "response received = " + str(tags.json)
         return tags.json
     
     def process_tags(self, tags):
@@ -300,6 +342,10 @@ class Backend(PeriodicImportBackend):
     
     def convert_date_to_str(self, date_obj):
         return date_obj.strftime(self.CONVERT_24_HR)
+    
+    def str_to_datetime(self, date_str):
+        return datetime.datetime.strptime(date_str, \
+                                          self.CONVERT_24_HR_WITH_TIME)
     
     def set_task(self, task):
         print "BACKEND_GTGONLINE : Set task was called"
