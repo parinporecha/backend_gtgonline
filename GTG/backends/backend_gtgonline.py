@@ -91,6 +91,8 @@ class Backend(PeriodicImportBackend):
         'tags': BASE_URL + 'tags/all/',
     }
     
+    CONVERT_24_HR = '%d/%m/%y'
+    
     def __init__(self, params):
         """ Constructor of the object """
         super(Backend, self).__init__(params)
@@ -237,11 +239,13 @@ class Backend(PeriodicImportBackend):
     def modify_tasks_for_gtgonline(self, task_list):
         details = {}
         for task in task_list:
+            start_date = self.convert_date_to_str(task.get_start_date().date())
+            due_date = self.convert_date_to_str(task.get_due_date().date())
             details[task.get_id()] = {
                 'name': task.get_title(),
                 'description': self.strip_xml_tags(task.get_text()),
-                'start_date': '', #task.get_start_date(),
-                'due_date': '', #task.get_due_date(),
+                'start_date': start_date,
+                'due_date': due_date,
                 'status': task.get_status(),
                 'subtasks': [subt.get_id() for subt in task.get_subtasks()]
             }
@@ -269,6 +273,7 @@ class Backend(PeriodicImportBackend):
                 gtg_task = self.datastore.get_task(key)
                 gtg_task.add_remote_id(self.get_id(), value)
                 self.datastore.push_task(gtg_task)
+                gtg_task.sync()
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
@@ -288,3 +293,12 @@ class Backend(PeriodicImportBackend):
         text = text.replace('<tag>', '')
         text = text.replace('</tag>', '')
         return text
+    
+    def convert_date_to_str(self, date_obj):
+        return date_obj.strftime(self.CONVERT_24_HR)
+    
+    def set_task(self, task):
+        print "BACKEND_GTGONLINE : Set task was called"
+        #task.sync()
+        self.save_state()
+    
