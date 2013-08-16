@@ -111,6 +111,7 @@ def task_from_xml(task, xmlnode):
 
 
 def task_to_xml(doc, task):
+    print "Task to XML called"
     t_xml = doc.createElement("task")
     t_xml.setAttribute("id", task.get_id())
     t_xml.setAttribute("status", task.get_status())
@@ -154,6 +155,7 @@ def task_to_xml(doc, task):
     t_xml.appendChild(remote_ids_element)
     remote_ids_dict = task.get_remote_ids()
     for backend_id, task_id in remote_ids_dict.iteritems():
+        print "TASK2XML - backend id = " + backend_id + " task id = " + task_id
         backend_element = doc.createElement('backend')
         remote_ids_element.appendChild(backend_element)
         backend_element.appendChild(doc.createTextNode(backend_id))

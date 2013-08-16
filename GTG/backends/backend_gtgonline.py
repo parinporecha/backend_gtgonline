@@ -231,6 +231,8 @@ class Backend(PeriodicImportBackend):
         print "Remote add = " + str(remote_add)
         print "Update = " + str(update)
         print "Remote delete = " + str(remote_delete)
+        
+        self.save_state()
     
     def modify_tasks_for_gtgonline(self, task_list):
         details = {}
@@ -263,9 +265,10 @@ class Backend(PeriodicImportBackend):
     
     def add_remote_id_to_local_tasks(self, id_dict):
         for key, value in id_dict.iteritems():
-            gtg_task = self.datastore.get_task(key)
-            gtg_task.add_remote_id(self.get_id(), value)
-            self.datastore.push_task(gtg_task)
+            with self.datastore.get_backend_mutex():
+                gtg_task = self.datastore.get_task(key)
+                gtg_task.add_remote_id(self.get_id(), value)
+                self.datastore.push_task(gtg_task)
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
