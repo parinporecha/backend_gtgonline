@@ -87,6 +87,7 @@ class Backend(PeriodicImportBackend):
         'tasks': {
             'get': BASE_URL + 'tasks/serial/',
             'new': BASE_URL + 'tasks/new/',
+            'update': BASE_URL + 'tasks/update/',
         },
         'tags': BASE_URL + 'tags/all/',
     }
@@ -239,6 +240,8 @@ class Backend(PeriodicImportBackend):
                                                  server_id_dict[web_id])
                 else:
                     local_delete.append(gtg_task)
+            
+            gtg_task.sync()
         
         print "*\n*\nLocal Id dict = " + str(local_id_dict) + "\n*\n*\n"
         print "*\n*\nServer Id dict = " + str(server_id_dict) + "\n*\n*\n"
@@ -286,8 +289,8 @@ class Backend(PeriodicImportBackend):
             "task_list": json.dumps(task_list),
         }
         ids = requests.post(self.URLS['tasks']['new'], \
-                                      proxies = self.NO_PROXY, \
-                                      data = { key: str(value) for key, value in params.items() })
+                            proxies = self.NO_PROXY, \
+                            data = { key: str(value) for key, value in params.items() })
         #print "ids received = " + str(ids.json)
         return ids.json
     
@@ -297,14 +300,15 @@ class Backend(PeriodicImportBackend):
                 gtg_task = self.datastore.get_task(key)
                 gtg_task.add_remote_id(self.get_id(), value)
                 self.datastore.push_task(gtg_task)
-                gtg_task.sync()
     
     def process_update_scenario(self, local_task, remote_task):
         task = self.get_latest_task(local_task, remote_task)
         if task == local_task:
+            print "Sent remote task to update"
             self.remote_update_task(local_task, remote_task['id'])
         else:
-            self.local_update_task(remote_task, local_task.get_id())
+            print "Send local task to update"
+            self.local_update_task(remote_task, local_task)
     
     def get_latest_task(self, local_task, remote_task):
         local_mod = local_task.get_modified()
@@ -319,6 +323,27 @@ class Backend(PeriodicImportBackend):
             return local_task
     
     def remote_update_task(self, task, task_id):
+        print "Updating remote task started ..."
+        start_date = self.convert_date_to_str(task.get_start_date().date())
+        due_date = self.convert_date_to_str(task.get_due_date().date())
+        params = {
+            "email": self._parameters["username"],
+            "password": self._parameters["password"],
+            "task_id": task_id,
+            "name": task.get_title(),
+            "description": self.strip_xml_tags(task.get_text()),
+            "start_date": start_date,
+            "due_date": due_date,
+            "origin": "gtg",
+        }
+        response = requests.post(self.URLS['tasks']['update'], \
+                                 params, proxies = self.NO_PROXY)
+        
+        print "Update response = " + str(response.json)
+        return
+    
+    def local_update_task(self, remote_task, local_task):
+        print "Updating local task started ..."
         pass
     
     def fetch_tags_from_server(self, ):
