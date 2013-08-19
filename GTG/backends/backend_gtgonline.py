@@ -35,6 +35,7 @@ import cookielib
 
 from dateutil.tz import tzutc, tzlocal
 from lxml import html
+from re import sub
 
 from GTG.backends.genericbackend import GenericBackend
 from GTG import _
@@ -46,6 +47,7 @@ from GTG.tools.dates import Date
 from GTG.core.task import Task
 from GTG.tools.interruptible import interruptible
 from GTG.tools.logger import Log
+from GTG.tools.dates import Date
 
 class Backend(PeriodicImportBackend):
     """
@@ -344,7 +346,25 @@ class Backend(PeriodicImportBackend):
     
     def local_update_task(self, remote_task, local_task):
         print "Updating local task started ..."
-        pass
+        local_task.set_title(_(remote_task["name"]))
+        local_task.set_text(_(remote_task["description"]))
+        local_task.set_status(remote_task["status"])
+        
+        start_date = self.str_to_datetime(remote_task["start_date"], \
+                                        return_date = True, without_time = True)
+        due_date = self.str_to_datetime(remote_task["due_date"], \
+                                        return_date = True, without_time = True)
+        local_task.set_start_date(Date(start_date))
+        local_task.set_due_date(Date(due_date))
+        new_tags = set(['@' + tag["name"] for tag in remote_task["tags"]])
+        print "new_tags = " + str(new_tags)
+        current_tags = set(local_task.get_tags_name())
+        # remove the lost tags
+        for tag in current_tags.difference(new_tags):
+            local_task.remove_tag(tag)
+        # add the new ones
+        for tag in new_tags.difference(current_tags):
+            local_task.add_tag(tag)
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
@@ -359,21 +379,30 @@ class Backend(PeriodicImportBackend):
         print "Tags = " + str(tags)
         
     def strip_xml_tags(self, text):
-        text = text.replace('<content>', '')
-        text = text.replace('</content>', '')
-        text = text.replace('<tag>', '')
-        text = text.replace('</tag>', '')
+        text = sub(r"<.{,1}content>", "", text)
+        text = sub(r"<.{,1}tag>", "", text)
+        text = sub(r"<subtask>.*</subtask>\n*", "", text)
         return text
     
     def convert_date_to_str(self, date_obj):
         return date_obj.strftime(self.CONVERT_24_HR)
     
-    def str_to_datetime(self, date_str):
-        return datetime.datetime.strptime(date_str, \
-                                          self.CONVERT_24_HR_WITH_TIME)
+    def str_to_datetime(self, date_str, return_date = False, \
+                        without_time = False):
+        try:
+            if without_time:
+                datetime_obj = datetime.datetime.strptime(date_str, \
+                                                      self.CONVERT_24_HR)
+            else:
+                datetime_obj = datetime.datetime.strptime(date_str, \
+                                                  self.CONVERT_24_HR_WITH_TIME)
+        except Exception:
+            return None
+        if return_date:
+            return datetime_obj.date()
+        return datetime_obj
     
     def set_task(self, task):
         print "BACKEND_GTGONLINE : Set task was called"
         #task.sync()
         self.save_state()
-    
