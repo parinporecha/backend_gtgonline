@@ -242,6 +242,7 @@ class Backend(PeriodicImportBackend):
                                                  server_id_dict[web_id])
                 else:
                     local_delete.append(gtg_task)
+                    self.send_task_for_deletion(gtg_task)
             
             gtg_task.sync()
         
@@ -255,9 +256,9 @@ class Backend(PeriodicImportBackend):
         #print "SERVER New Tasks = "
         
         remote_add = self.modify_tasks_for_gtgonline(remote_add)
-        #id_dict = self.remote_add_tasks(remote_add)
-        #self.add_remote_id_to_local_tasks(id_dict)
-        #print "Id dict = " + str(id_dict)
+        id_dict = self.remote_add_tasks(remote_add)
+        self.add_remote_id_to_local_tasks(id_dict)
+        print "Id dict = " + str(id_dict)
         
         print "Remote add = " + str(remote_add)
         print "Update = " + str(update)
@@ -365,6 +366,9 @@ class Backend(PeriodicImportBackend):
         # add the new ones
         for tag in new_tags.difference(current_tags):
             local_task.add_tag(tag)
+    
+    def send_task_for_deletion(self, task):
+        self.datastore.request_task_deletion(task.get_id())
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
