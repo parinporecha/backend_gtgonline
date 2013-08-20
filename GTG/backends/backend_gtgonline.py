@@ -109,6 +109,7 @@ class Backend(PeriodicImportBackend):
         # loading the saved state of the synchronization, if any
         self.data_path = os.path.join('backends/gtgonline/',
                                       "sync_engine-" + self.get_id())
+        print "Data path = \n****\n****\n" + str(self.data_path) + "\n****\n****\n"
         self.sync_engine = self._load_pickled_file(self.data_path,
                                                    SyncEngine())
     
@@ -193,6 +194,7 @@ class Backend(PeriodicImportBackend):
         
     def save_state(self):
         '''Saves the state of the synchronization'''
+        print "Saving Data path = \n****\n****\n" + str(self.data_path) + "\n****\n****\n"
         self._store_pickled_file(self.data_path, self.sync_engine)
         
     def fetch_tasks_from_server(self, ):
