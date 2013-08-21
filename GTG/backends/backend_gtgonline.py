@@ -36,6 +36,7 @@ import cookielib
 from dateutil.tz import tzutc, tzlocal
 from lxml import html
 from re import sub
+from hashlib import md5
 
 from GTG.backends.genericbackend import GenericBackend
 from GTG import _
@@ -109,9 +110,12 @@ class Backend(PeriodicImportBackend):
         # loading the saved state of the synchronization, if any
         self.data_path = os.path.join('backends/gtgonline/',
                                       "sync_engine-" + self.get_id())
-        print "Data path = \n****\n****\n" + str(self.data_path) + "\n****\n****\n"
         self.sync_engine = self._load_pickled_file(self.data_path,
                                                    SyncEngine())
+        self.hash_dict_path = os.path.join('backends/gtgonline/',
+                                      "hash_dict-" + self.get_id())
+        print "Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
+        self.hash_dict = self._load_pickled_file(self.hash_dict_path, default_value = {})
     
     def initialize(self):
         """ This is called when a backend is enabled """
@@ -191,18 +195,21 @@ class Backend(PeriodicImportBackend):
         self.process_tasks(tasks)
         tags = self.fetch_tags_from_server()
         self.process_tags(tags)
+        self.save_state()
         
     def save_state(self):
         '''Saves the state of the synchronization'''
-        print "Saving Data path = \n****\n****\n" + str(self.data_path) + "\n****\n****\n"
+        print "Saving Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
+        print "Hash Dict = \n****\n****\n" + str(self.hash_dict) + "\n****\n****\n"
         self._store_pickled_file(self.data_path, self.sync_engine)
+        self._store_pickled_file(self.hash_dict_path, self.hash_dict)
         
     def fetch_tasks_from_server(self, ):
         print "Fetching tasks started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
         tasks = requests.post(self.URLS['tasks']['get'], \
-                                      params, proxies = self.NO_PROXY)
+                              params, proxies = self.NO_PROXY)
         print "response received = " + str(tasks.json)
         return tasks.json
     
@@ -216,6 +223,7 @@ class Backend(PeriodicImportBackend):
         update = []
         remote_delete = []
         local_delete = []
+        remote_ids_list = []
         #server_ids = [task['id'] for task in remote_tasks]
         server_id_dict = {}
         local_id_dict = {}
@@ -229,6 +237,7 @@ class Backend(PeriodicImportBackend):
             #if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
                 #print "NOT SYNCABLE = " + gtg_task.get_title()
                 #continue
+            task_hash = self.get_hash_from_dict(tid)
             remote_ids = gtg_task.get_remote_ids()
             print "Remote ids for " + tid + " = " + str(remote_ids)
             web_id = remote_ids.get(self.get_id(), None)
@@ -238,16 +247,21 @@ class Backend(PeriodicImportBackend):
                 remote_add.append(gtg_task)
             else:
                 local_id_dict[web_id] = gtg_task
+                remote_ids_list.append(web_id)
                 if web_id in server_id_dict.keys():
                     print "Sending task to update scenario"
                     self.process_update_scenario(gtg_task, \
-                                                 server_id_dict[web_id])
+                                                 server_id_dict[web_id], \
+                                                 task_hash)
                 else:
                     local_delete.append(gtg_task)
                     self.send_task_for_deletion(gtg_task)
+            #gtg_task.sync()
             
-            gtg_task.sync()
+        new_remote_tasks = list(set(server_id_dict.keys()) - \
+                                set(remote_ids_list))
         
+        print "*\n*\nRemote Tasks list = " + str(new_remote_tasks) + "\n*\n*\n"
         print "*\n*\nLocal Id dict = " + str(local_id_dict) + "\n*\n*\n"
         print "*\n*\nServer Id dict = " + str(server_id_dict) + "\n*\n*\n"
         #server_diff_tasks = list(set(server_id_dict.keys()) - \
@@ -306,16 +320,33 @@ class Backend(PeriodicImportBackend):
                 gtg_task.add_remote_id(self.get_id(), value)
                 self.datastore.push_task(gtg_task)
     
-    def process_update_scenario(self, local_task, remote_task):
-        task = self.get_latest_task(local_task, remote_task)
+    def process_update_scenario(self, local_task, remote_task, task_hash):
+        task = self.get_latest_task(local_task, remote_task, task_hash)
         if task == local_task:
             print "Sent remote task to update"
             self.remote_update_task(local_task, remote_task['id'])
-        else:
+        elif task == remote_task:
             print "Send local task to update"
             self.local_update_task(remote_task, local_task)
     
-    def get_latest_task(self, local_task, remote_task):
+    def get_latest_task(self, local_task, remote_task, task_hash):
+        local_hash = self.compute_task_hash(local_task)
+        remote_hash = self.compute_task_hash(remote_task, mode = self.REMOTE)
+        
+        if local_hash == task_hash == remote_hash:
+            print "ALL HASHES ARE EQUAL"
+            return None
+        elif local_hash != task_hash and remote_hash == task_hash:
+            print "Local is Latest. Update Remote"
+            return local_task
+        elif local_hash == task_hash and remote_hash != task_hash:
+            print "Remote is Latest. Update Local"
+            return remote_task
+        else:
+            print "BOTH HASHES ARE DIFFERENT, Update local"
+            return remote_task
+        
+        '''
         local_mod = local_task.get_modified()
         remote_mod = self.str_to_datetime(remote_task['last_modified_date'])
         print "local_mod = " + str(local_mod) + " remote_due = " + str(remote_mod)
@@ -326,6 +357,7 @@ class Backend(PeriodicImportBackend):
         else:
             print "Local is Latest. Update Remote"
             return local_task
+        '''
     
     def remote_update_task(self, task, task_id):
         print "Updating remote task started ..."
@@ -385,8 +417,8 @@ class Backend(PeriodicImportBackend):
         print "Tags = " + str(tags)
         
     def strip_xml_tags(self, text):
-        text = sub(r"<.{,1}content>", "", text)
-        text = sub(r"<.{,1}tag>", "", text)
+        text = sub(r"<.?content>", "", text)
+        text = sub(r"<.?tag>", "", text)
         text = sub(r"<subtask>.*</subtask>\n*", "", text)
         return text
     
@@ -412,3 +444,24 @@ class Backend(PeriodicImportBackend):
         print "BACKEND_GTGONLINE : Set task was called"
         #task.sync()
         self.save_state()
+    
+    def get_hash_from_dict(self, task_id):
+        task_hash = self.hash_dict.get(task_id, None)
+        if task_hash == None:
+            task = self.datastore.get_task(task_id)
+            task_hash = self.compute_task_hash(task, mode = self.LOCAL)
+            self.hash_dict[task_id] = task_hash
+        return task_hash
+    
+    def compute_task_hash(self, task, mode = None):
+        if mode == self.REMOTE:
+            in_str = task['name']
+            in_str += task['description']
+            in_str += task['start_date']
+            in_str += task['due_date']
+        else:
+            in_str = task.get_title()
+            in_str += self.strip_xml_tags(task.get_text())
+            in_str += self.convert_date_to_str(task.get_start_date().date())
+            in_str += self.convert_date_to_str(task.get_due_date().date())
+        return md5(in_str).hexdigest()
