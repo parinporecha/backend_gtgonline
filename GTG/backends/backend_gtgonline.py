@@ -237,7 +237,7 @@ class Backend(PeriodicImportBackend):
             #if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
                 #print "NOT SYNCABLE = " + gtg_task.get_title()
                 #continue
-            task_hash = self.get_hash_from_dict(tid)
+            task_hash = self.get_or_create_hash_from_dict(tid)[0]
             remote_ids = gtg_task.get_remote_ids()
             print "Remote ids for " + tid + " = " + str(remote_ids)
             web_id = remote_ids.get(self.get_id(), None)
@@ -256,12 +256,14 @@ class Backend(PeriodicImportBackend):
                 else:
                     local_delete.append(gtg_task)
                     self.send_task_for_deletion(gtg_task)
-            #gtg_task.sync()
+            gtg_task.sync()
             
         new_remote_tasks = list(set(server_id_dict.keys()) - \
                                 set(remote_ids_list))
+        old_local_tasks = list(set(self.hash_dict.keys()) - set(local_tasks))
         
         print "*\n*\nRemote Tasks list = " + str(new_remote_tasks) + "\n*\n*\n"
+        print "*\n*\nOld Local tasks list = " + str(old_local_tasks) + "\n*\n*\n"
         print "*\n*\nLocal Id dict = " + str(local_id_dict) + "\n*\n*\n"
         print "*\n*\nServer Id dict = " + str(server_id_dict) + "\n*\n*\n"
         #server_diff_tasks = list(set(server_id_dict.keys()) - \
@@ -445,13 +447,16 @@ class Backend(PeriodicImportBackend):
         #task.sync()
         self.save_state()
     
-    def get_hash_from_dict(self, task_id):
-        task_hash = self.hash_dict.get(task_id, None)
-        if task_hash == None:
+    def get_or_create_hash_from_dict(self, task_id):
+        task_hash_tuple = self.hash_dict.get(task_id, (None, None))
+        if task_hash_tuple[0] == None:
             task = self.datastore.get_task(task_id)
             task_hash = self.compute_task_hash(task, mode = self.LOCAL)
-            self.hash_dict[task_id] = task_hash
-        return task_hash
+            remote_ids = task.get_remote_ids()
+            web_id = remote_ids.get(self.get_id(), None)
+            task_hash_tuple = (task_hash, web_id)
+            self.hash_dict[task_id] = task_hash_tuple
+        return task_hash_tuple
     
     def compute_task_hash(self, task, mode = None):
         if mode == self.REMOTE:
