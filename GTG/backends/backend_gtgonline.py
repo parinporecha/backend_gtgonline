@@ -91,6 +91,7 @@ class Backend(PeriodicImportBackend):
             'get': BASE_URL + 'tasks/serial/',
             'new': BASE_URL + 'tasks/new/',
             'update': BASE_URL + 'tasks/update/',
+            'delete': BASE_URL + 'tasks/delete/',
         },
         'tags': BASE_URL + 'tags/all/',
     }
@@ -234,9 +235,9 @@ class Backend(PeriodicImportBackend):
         
         for tid in local_tasks:
             gtg_task = self.datastore.get_task(tid)
-            #if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
-                #print "NOT SYNCABLE = " + gtg_task.get_title()
-                #continue
+            if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
+                print "NOT SYNCABLE = " + gtg_task.get_title()
+                continue
             task_hash = self.get_or_create_hash_from_dict(tid)[0]
             remote_ids = gtg_task.get_remote_ids()
             print "Remote ids for " + tid + " = " + str(remote_ids)
@@ -261,6 +262,8 @@ class Backend(PeriodicImportBackend):
         new_remote_tasks = list(set(server_id_dict.keys()) - \
                                 set(remote_ids_list))
         old_local_tasks = list(set(self.hash_dict.keys()) - set(local_tasks))
+        self.process_local_new_scenario(new_remote_tasks, server_id_dict)
+        self.process_remote_delete_scenario(old_local_tasks)
         
         print "*\n*\nRemote Tasks list = " + str(new_remote_tasks) + "\n*\n*\n"
         print "*\n*\nOld Local tasks list = " + str(old_local_tasks) + "\n*\n*\n"
@@ -321,6 +324,8 @@ class Backend(PeriodicImportBackend):
                 gtg_task = self.datastore.get_task(key)
                 gtg_task.add_remote_id(self.get_id(), value)
                 self.datastore.push_task(gtg_task)
+                
+                self.hash_dict[key][1] = value
     
     def process_update_scenario(self, local_task, remote_task, task_hash):
         task = self.get_latest_task(local_task, remote_task, task_hash)
@@ -406,6 +411,28 @@ class Backend(PeriodicImportBackend):
     def send_task_for_deletion(self, task):
         self.datastore.request_task_deletion(task.get_id())
     
+    def process_local_new_scenario(self, remote_ids, remote_task_dict):
+        print "Local New Task started ..."
+        pass
+    
+    def process_remote_delete_scenario(self, local_ids):
+        ids_to_be_deleted = []
+        for task_id in local_ids:
+            web_id = self.hash_dict.get(task_id, [None, None])[1]
+            print "web_id = " + str(web_id)
+            if web_id != None:
+                ids_to_be_deleted.append(web_id)
+                self.hash_dict.pop(task_id, None)
+        self.remote_delete_task(ids_to_be_deleted)
+    
+    def remote_delete_task(self, web_id_list):
+        print "Deleting remote tasks started ..." + str(web_id_list)
+        params = {"email": self._parameters["username"],
+                  "password": self._parameters["password"],
+                  "task_id_list": json.dumps(web_id_list), "origin": "gtg",}
+        tags = requests.post(self.URLS['tasks']['delete'], \
+                                      params, proxies = self.NO_PROXY)
+    
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
         params = {"email": self._parameters["username"],
@@ -448,13 +475,13 @@ class Backend(PeriodicImportBackend):
         self.save_state()
     
     def get_or_create_hash_from_dict(self, task_id):
-        task_hash_tuple = self.hash_dict.get(task_id, (None, None))
+        task_hash_tuple = self.hash_dict.get(task_id, [None, None])
         if task_hash_tuple[0] == None:
             task = self.datastore.get_task(task_id)
             task_hash = self.compute_task_hash(task, mode = self.LOCAL)
             remote_ids = task.get_remote_ids()
             web_id = remote_ids.get(self.get_id(), None)
-            task_hash_tuple = (task_hash, web_id)
+            task_hash_tuple = [task_hash, web_id]
             self.hash_dict[task_id] = task_hash_tuple
         return task_hash_tuple
     
