@@ -114,9 +114,11 @@ class Backend(PeriodicImportBackend):
         self.sync_engine = self._load_pickled_file(self.data_path,
                                                    SyncEngine())
         self.hash_dict_path = os.path.join('backends/gtgonline/',
-                                      "hash_dict-" + self.get_id())
+                                      "hash_dict-" + self.get_id() + \
+                                      self._parameters["username"])
         print "Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
-        self.hash_dict = self._load_pickled_file(self.hash_dict_path, default_value = {})
+        self.hash_dict = self._load_pickled_file(self.hash_dict_path, \
+                                                 default_value = {})
     
     def initialize(self):
         """ This is called when a backend is enabled """
@@ -125,6 +127,7 @@ class Backend(PeriodicImportBackend):
         print "parameters = " + str(self._parameters)
         print "tasks = " + str(tasks)
         gtg_titles_dic = {}
+        
         for tid in self.datastore.get_all_tasks():
             gtg_task = self.datastore.get_task(tid)
             if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
@@ -407,12 +410,25 @@ class Backend(PeriodicImportBackend):
         # add the new ones
         for tag in new_tags.difference(current_tags):
             local_task.add_tag(tag)
+        
+        if local_task.get_remote_ids().get(self.get_id(), None) == None:
+            local_task.add_remote_id(self.get_id(), remote_task["id"])
+            
+        return local_task
     
     def send_task_for_deletion(self, task):
         self.datastore.request_task_deletion(task.get_id())
     
     def process_local_new_scenario(self, remote_ids, remote_task_dict):
         print "Local New Task started ..."
+        for web_id in remote_ids:
+            remote_task = remote_task_dict[web_id]
+            print "LOCAL NEW TASK = " + str(remote_task)
+            tid = str(uuid.uuid4())
+            local_task = self.datastore.task_factory(tid)
+            local_task = self.local_update_task(remote_task, local_task)
+            self.datastore.push_task(local_task)
+            self.get_or_create_hash_from_dict(tid)
         pass
     
     def process_remote_delete_scenario(self, local_ids):
