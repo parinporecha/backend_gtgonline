@@ -264,6 +264,14 @@ class Backend(PeriodicImportBackend):
         self.add_remote_id_to_sync_details(id_dict)
         print "Id dict = " + str(id_dict)
         
+        remote_ids_in_hash_dict = [i[1] for i in self.hash_dict.values()]
+        
+        new_remote_tasks = list(set(server_id_dict.keys()) - \
+                                set(remote_ids_in_hash_dict))
+        deleted_local_tasks = list(set(self.hash_dict.keys()) - set(local_tasks))
+        self.process_local_new_scenario(new_remote_tasks, server_id_dict)
+        self.process_remote_delete_scenario(deleted_local_tasks)
+        
         for gtg_task in old_local_tasks:
             sync_details = self.hash_dict.get(gtg_task.get_id(), [None, None])
             remote_id = sync_details[1]
@@ -298,14 +306,6 @@ class Backend(PeriodicImportBackend):
             #        local_delete.append(gtg_task)
             #        self.send_task_for_deletion(gtg_task)
             #        self.hash_dict.pop(tid, None)
-            
-        remote_ids_in_hash_dict = [i[1] for i in self.hash_dict.values()]
-        
-        new_remote_tasks = list(set(server_id_dict.keys()) - \
-                                set(remote_ids_in_hash_dict))
-        old_local_tasks = list(set(self.hash_dict.keys()) - set(local_tasks))
-        self.process_local_new_scenario(new_remote_tasks, server_id_dict)
-        self.process_remote_delete_scenario(old_local_tasks)
         
         print "*\n*\nRemote Tasks list = " + str(new_remote_tasks) + "\n*\n*\n"
         print "*\n*\nOld Local tasks list = " + str(old_local_tasks) + "\n*\n*\n"
@@ -438,9 +438,11 @@ class Backend(PeriodicImportBackend):
     
     def get_subtask_remote_ids(self, local_task):
         local_subtask_ids = local_task.get_subtasks()
+        print "Subtasks of local task = " + str(local_subtask_ids)
         remote_subtask_ids = []
-        for task_id in local_subtask_ids:
-            remote_subtask_ids.append(self.hash_dict.get(task_id, None))
+        for task in local_subtask_ids:
+            remote_subtask_ids.append(self.hash_dict.get(task.get_id(), \
+                                                         None)[1])
         print "Remote Subtask Ids = " + str(remote_subtask_ids)
         return remote_subtask_ids
     
@@ -478,16 +480,29 @@ class Backend(PeriodicImportBackend):
     def process_local_new_scenario(self, remote_ids, remote_task_dict):
         print "Local New Task started ..."
         print "Remote ids = " + str(remote_ids)
+        local_tasks_dict = {}
         for web_id in remote_ids:
             remote_task = remote_task_dict[web_id]
             print "LOCAL NEW TASK = " + str(remote_task)
             tid = str(uuid.uuid4())
             local_task = self.datastore.task_factory(tid)
             local_task = self.local_update_task(remote_task, local_task)
-            self.datastore.push_task(local_task)
             print "All Tasks = " + str(self.datastore.get_all_tasks())
             self.get_or_save_hash(tid, task_object = local_task, \
                                   web_id = web_id)
+            local_tasks_dict[web_id] = local_task
+        
+        print "Local Tasks Dict = " + str(local_tasks_dict)
+        for key, value in local_tasks_dict.iteritems():
+            remote_subtask_ids = remote_task_dict[key]["subtasks"]
+            print "Remote subtask Ids = " + str(remote_subtask_ids)
+            local_subtask_ids = [local_tasks_dict[str(task_id)].get_id() \
+                                 for task_id in remote_subtask_ids]
+            print "Local subtask ids = " + str(local_subtask_ids)
+            for local_id in local_subtask_ids:
+                value.add_child(local_id)
+            self.datastore.push_task(value)
+            
     
     def process_remote_delete_scenario(self, local_ids):
         ids_to_be_deleted = []
