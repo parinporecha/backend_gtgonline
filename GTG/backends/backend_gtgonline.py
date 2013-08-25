@@ -33,6 +33,8 @@ import requests
 import json
 import cookielib
 
+import pynotify
+
 from dateutil.tz import tzutc, tzlocal
 from lxml import html
 from re import sub
@@ -132,6 +134,7 @@ class Backend(PeriodicImportBackend):
         self.hash_dict = self._load_pickled_file(self.hash_dict_path, \
                                                  default_value = {})
         
+        pynotify.init("started")
         #tasks = self.datastore.get_all_tasks()
         #print "parameters = " + str(self._parameters)
         #print "tasks = " + str(tasks)
@@ -209,13 +212,18 @@ class Backend(PeriodicImportBackend):
         #tags = self.fetch_tags_from_server()
         #self.process_tags(tags)
         self.save_state()
+        pynotify.Notification("Sync Done", "Gat is back", "dialog-info").show()
         
     def save_state(self):
         '''Saves the state of the synchronization'''
         #print "Saving Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
         print "Hash Dict = \n****\n****\n" + str(self.hash_dict) + "\n****\n****\n"
         for task_id in self.hash_dict.keys():
-            print "Title = " + self.datastore.get_task(tid).get_title()
+            task = self.datastore.get_task(task_id)
+            if task != None:
+                print "Id = " + task_id + " Title = " + task.get_title()
+            else:
+                print "!!! BAD ID !!! = " + task_id
         
         self._store_pickled_file(self.data_path, self.sync_engine)
         self._store_pickled_file(self.hash_dict_path, self.hash_dict)
