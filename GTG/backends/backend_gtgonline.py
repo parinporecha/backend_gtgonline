@@ -98,6 +98,7 @@ class Backend(PeriodicImportBackend):
     
     CONVERT_24_HR = '%d/%m/%y'
     CONVERT_24_HR_WITH_TIME = '%d/%m/%y %H:%M:%S'
+    GTG_NO_DATE = '30/12/99'
     
     LOCAL = 0
     REMOTE = 1
@@ -413,6 +414,7 @@ class Backend(PeriodicImportBackend):
         print "Updating remote task started ..."
         start_date = self.convert_date_to_str(task.get_start_date().date())
         due_date = self.convert_date_to_str(task.get_due_date().date())
+        print "Due Date = " + str(due_date)
         task_list = [
             {
                 "task_id": task_id,
@@ -471,7 +473,29 @@ class Backend(PeriodicImportBackend):
         #if local_task.get_remote_ids().get(self.get_id(), None) == None:
             #local_task.add_remote_id(self.get_id(), remote_task["id"])
         
+        if len(local_task.get_subtasks()) != len(remote_task["subtasks"]):
+            local_task = self.add_subtasks_from_remote(local_task, \
+                                                        remote_task)
+        
         print "Before returning, local_task = " + str(local_task)
+        return local_task
+    
+    def add_subtasks_from_remote(self, local_task, remote_task):
+        local_subtasks = set(local_task.get_subtasks())
+        remote_subtasks = remote_task["subtasks"]
+        print "Remote_subtasks = " + str(remote_subtasks)
+        remote_subtask_local_id = []
+        
+        for key, value in self.hash_dict.iteritems():
+            if value[1] in remote_subtasks:
+                remote_subtask_local_id.append(key)
+        
+        print "Local Subtasks = " + str(list(local_subtasks))
+        print "Remote subtask local id = " + str(remote_subtask_local_id)
+        for subtask in set(remote_subtask_local_id).difference(local_subtasks):
+            print "Adding subtask = " + str(subtask)
+            local_task.add_child(subtask)
+        
         return local_task
     
     def send_task_for_deletion(self, task):
@@ -541,7 +565,10 @@ class Backend(PeriodicImportBackend):
         return text
     
     def convert_date_to_str(self, date_obj):
-        return date_obj.strftime(self.CONVERT_24_HR)
+        date = date_obj.strftime(self.CONVERT_24_HR)
+        if date == self.GTG_NO_DATE:
+            return ''
+        return date
     
     def str_to_datetime(self, date_str, return_date = False, \
                         without_time = False):
