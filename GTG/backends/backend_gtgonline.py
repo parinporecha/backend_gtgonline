@@ -212,8 +212,11 @@ class Backend(PeriodicImportBackend):
         
     def save_state(self):
         '''Saves the state of the synchronization'''
-        print "Saving Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
+        #print "Saving Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
         print "Hash Dict = \n****\n****\n" + str(self.hash_dict) + "\n****\n****\n"
+        for task_id in self.hash_dict.keys():
+            print "Title = " + self.datastore.get_task(tid).get_title()
+        
         self._store_pickled_file(self.data_path, self.sync_engine)
         self._store_pickled_file(self.hash_dict_path, self.hash_dict)
         
