@@ -165,7 +165,7 @@ class Backend(PeriodicImportBackend):
         #tags = self.fetch_tags_from_server()
         #self.process_tags(tags)
         self.save_state()
-        pynotify.Notification("Sync Done", "Gat is back", "dialog-info").show()
+        pynotify.Notification("Sync Done", "hell yeah", "dialog-info").show()
         
     def save_state(self):
         '''Saves the state of the synchronization'''
