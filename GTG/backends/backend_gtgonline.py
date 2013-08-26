@@ -65,7 +65,7 @@ class Backend(PeriodicImportBackend):
         GenericBackend.BACKEND_DESCRIPTION:
         _("This service synchronizes your tasks with Getting Things Gnome's"
           " Web Application - GTGOnline!\n\n"
-          "Note: This product uses the GTGOnline! API and is"
+          "Note: This product uses the GTGOnline! API and is even"
           " certified by GTGOnline!\n"
           "How cool is that !"),
     }
@@ -84,9 +84,9 @@ class Backend(PeriodicImportBackend):
     }
     
     # USE BELOW ONLY IF ACCESSING LOCALHOST INSIDE CAMPUS
-    NO_PROXY = {'no': 'pass'}
+    #NO_PROXY = {'no': 'pass'}
     
-    BASE_URL = "http://localhost:8000/"
+    BASE_URL = "http://gtgonline-parinporecha.rhcloud.com/"
     URLS = {
         'auth': BASE_URL + 'user/auth_gtg/',
         'tasks': {
@@ -144,8 +144,7 @@ class Backend(PeriodicImportBackend):
         """
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
-        auth_response = requests.post(self.URLS['auth'], \
-                                      params, proxies = self.NO_PROXY)
+        auth_response = requests.post(self.URLS['auth'], params)
         if auth_response.text != '1':
             self.auth_has_failed()
     
@@ -190,8 +189,7 @@ class Backend(PeriodicImportBackend):
         #print "Fetching tasks started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
-        tasks = requests.post(self.URLS['tasks']['get'], \
-                              params, proxies = self.NO_PROXY)
+        tasks = requests.post(self.URLS['tasks']['get'], params)
         #print "response received = " + str(tasks.json)
         return tasks.json
     
@@ -314,7 +312,6 @@ class Backend(PeriodicImportBackend):
             "task_list": json.dumps(task_list),
         }
         ids = requests.post(self.URLS['tasks']['new'], \
-                            proxies = self.NO_PROXY, \
                             data = { key: str(value) for key, value in params.items() })
         #print "ids received = " + str(ids.json)
         return ids.json
@@ -413,8 +410,7 @@ class Backend(PeriodicImportBackend):
             "password": self._parameters["password"],
             "task_list": json.dumps(task_list),
         }
-        response = requests.post(self.URLS['tasks']['update'], \
-                                 params, proxies = self.NO_PROXY)
+        response = requests.post(self.URLS['tasks']['update'], params)
         
         #print "Update response = " + str(response.json)
         return
@@ -530,15 +526,13 @@ class Backend(PeriodicImportBackend):
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],
                   "task_id_list": json.dumps(web_id_list), "origin": "gtg",}
-        tags = requests.post(self.URLS['tasks']['delete'], \
-                                      params, proxies = self.NO_PROXY)
+        tags = requests.post(self.URLS['tasks']['delete'], params)
     
     def fetch_tags_from_server(self, ):
         print "Fetching tags started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
-        tags = requests.post(self.URLS['tags'], \
-                                      params, proxies = self.NO_PROXY)
+        tags = requests.post(self.URLS['tags'], params)
         #print "response received = " + str(tags.json)
         return tags.json
     
