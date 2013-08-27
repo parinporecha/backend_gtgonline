@@ -100,7 +100,9 @@ class Backend(PeriodicImportBackend):
     
     CONVERT_24_HR = '%d/%m/%y'
     CONVERT_24_HR_WITH_TIME = '%d/%m/%y %H:%M:%S'
-    GTG_NO_DATE = '30/12/99'
+    GTG_NO_DATE = datetime.date.max
+    GTG_SOMEDAY_DATE = datetime.date.max - datetime.timedelta(1)
+    GTGONLINE_SOMEDAY_DATE = datetime.datetime.now() + datetime.timedelta(30)
     
     LOCAL = 0
     REMOTE = 1
@@ -130,13 +132,13 @@ class Backend(PeriodicImportBackend):
         self.hash_dict_path = os.path.join('backends/gtgonline/',
                                       "hash_dict-" + self.get_id() + \
                                       self._parameters["username"])
-        print "Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
+        #print "Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
         self.hash_dict = self._load_pickled_file(self.hash_dict_path, \
                                                  default_value = {})
         
         pynotify.init("started")
         self.try_auth()
-        print "returned here"
+        #print "returned here"
             
     def try_auth(self):
         """
@@ -224,7 +226,7 @@ class Backend(PeriodicImportBackend):
         for tid in local_tasks:
             gtg_task = self.datastore.get_task(tid)
             if not self._gtg_task_is_syncable_per_attached_tags(gtg_task):
-                print "NOT SYNCABLE = " + gtg_task.get_title()
+                #print "NOT SYNCABLE = " + gtg_task.get_title()
                 continue
             
             sync_details = self.hash_dict.get(tid, [None, None])
@@ -338,10 +340,10 @@ class Backend(PeriodicImportBackend):
         """
         task = self.get_latest_task(local_task, remote_task, task_hash)
         if task == local_task:
-            print "Sent remote task to update"
+            #print "Sent remote task to update"
             self.remote_update_task(local_task, remote_task['id'])
         elif task == remote_task:
-            print "Send local task to update"
+            #print "Send local task to update"
             self.local_update_task(remote_task, local_task)
     
     def get_latest_task(self, local_task, remote_task, task_hash):
@@ -350,23 +352,23 @@ class Backend(PeriodicImportBackend):
         and returns the latest task
         """
         local_id = local_task.get_id()
-        print "In getting latest task, local id = " + str(local_id)
+        #print "In getting latest task, local id = " + str(local_id)
         local_hash = self.compute_task_hash(local_task)
         remote_hash = self.compute_task_hash(remote_task, mode = self.REMOTE)
         
         if local_hash == task_hash == remote_hash:
-            print "ALL HASHES ARE EQUAL"
+            #print "ALL HASHES ARE EQUAL"
             return None
         elif local_hash != task_hash and remote_hash == task_hash:
-            print "Local is Latest. Update Remote"
+            #print "Local is Latest. Update Remote"
             self.hash_dict[local_id][0] = local_hash
             return local_task
         elif local_hash == task_hash and remote_hash != task_hash:
-            print "Remote is Latest. Update Local"
+            #print "Remote is Latest. Update Local"
             self.hash_dict[local_id][0] = remote_hash
             return remote_task
         else:
-            print "BOTH HASHES ARE DIFFERENT, Update local"
+            #print "BOTH HASHES ARE DIFFERENT, Update local"
             self.hash_dict[local_id][0] = remote_hash
             return remote_task
         
@@ -392,7 +394,8 @@ class Backend(PeriodicImportBackend):
         #print "Updating remote task started ..."
         start_date = self.convert_date_to_str(task.get_start_date().date())
         due_date = self.convert_date_to_str(task.get_due_date().date())
-        #print "Due Date = " + str(due_date)
+        print "Due Date = " + str(due_date)
+        print "Is due date fuzzy ? = " + str(task.get_due_date().is_fuzzy())
         task_list = [
             {
                 "task_id": task_id,
@@ -420,12 +423,12 @@ class Backend(PeriodicImportBackend):
         Takes input a local task, and returns the remote ids of it's subtasks
         """
         local_subtask_ids = local_task.get_subtasks()
-        print "Subtasks of local task = " + str(local_subtask_ids)
+        #print "Subtasks of local task = " + str(local_subtask_ids)
         remote_subtask_ids = []
         for task in local_subtask_ids:
             remote_subtask_ids.append(self.hash_dict.get(task.get_id(), \
                                                          None)[1])
-        print "Remote Subtask Ids = " + str(remote_subtask_ids)
+        #print "Remote Subtask Ids = " + str(remote_subtask_ids)
         return remote_subtask_ids
     
     def local_update_task(self, remote_task, local_task):
@@ -466,17 +469,17 @@ class Backend(PeriodicImportBackend):
     def add_subtasks_from_remote(self, local_task, remote_task):
         local_subtasks = set(local_task.get_subtasks())
         remote_subtasks = remote_task["subtasks"]
-        print "Remote_subtasks = " + str(remote_subtasks)
+        #print "Remote_subtasks = " + str(remote_subtasks)
         remote_subtask_local_id = []
         
         for key, value in self.hash_dict.iteritems():
             if value[1] in remote_subtasks:
                 remote_subtask_local_id.append(key)
         
-        print "Local Subtasks = " + str(list(local_subtasks))
-        print "Remote subtask local id = " + str(remote_subtask_local_id)
+        #print "Local Subtasks = " + str(list(local_subtasks))
+        #print "Remote subtask local id = " + str(remote_subtask_local_id)
         for subtask in set(remote_subtask_local_id).difference(local_subtasks):
-            print "Adding subtask = " + str(subtask)
+            #print "Adding subtask = " + str(subtask)
             local_task.add_child(subtask)
         
         return local_task
@@ -486,26 +489,26 @@ class Backend(PeriodicImportBackend):
     
     def process_local_new_scenario(self, remote_ids, remote_task_dict):
         #print "Local New Task started ..."
-        print "Remote ids = " + str(remote_ids)
+        #print "Remote ids = " + str(remote_ids)
         local_tasks_dict = {}
         for web_id in remote_ids:
             remote_task = remote_task_dict[web_id]
-            print "LOCAL NEW TASK = " + str(remote_task)
+            #print "LOCAL NEW TASK = " + str(remote_task)
             tid = str(uuid.uuid4())
             local_task = self.datastore.task_factory(tid)
             local_task = self.local_update_task(remote_task, local_task)
-            print "All Tasks = " + str(self.datastore.get_all_tasks())
+            #print "All Tasks = " + str(self.datastore.get_all_tasks())
             self.get_or_save_hash(tid, task_object = local_task, \
                                   web_id = web_id)
             local_tasks_dict[web_id] = local_task
         
-        print "Local Tasks Dict = " + str(local_tasks_dict)
+        #print "Local Tasks Dict = " + str(local_tasks_dict)
         for key, value in local_tasks_dict.iteritems():
             remote_subtask_ids = remote_task_dict[key]["subtasks"]
-            print "Remote subtask Ids = " + str(remote_subtask_ids)
+            #print "Remote subtask Ids = " + str(remote_subtask_ids)
             local_subtask_ids = [local_tasks_dict[str(task_id)].get_id() \
                                  for task_id in remote_subtask_ids]
-            print "Local subtask ids = " + str(local_subtask_ids)
+            #print "Local subtask ids = " + str(local_subtask_ids)
             for local_id in local_subtask_ids:
                 value.add_child(local_id)
             self.datastore.push_task(value)
@@ -515,21 +518,21 @@ class Backend(PeriodicImportBackend):
         ids_to_be_deleted = []
         for task_id in local_ids:
             web_id = self.hash_dict.get(task_id, [None, None])[1]
-            print "web_id = " + str(web_id)
+            #print "web_id = " + str(web_id)
             if web_id != None:
                 ids_to_be_deleted.append(web_id)
                 self.hash_dict.pop(task_id, None)
         self.remote_delete_task(ids_to_be_deleted)
     
     def remote_delete_task(self, web_id_list):
-        print "Deleting remote tasks started ..." + str(web_id_list)
+        #print "Deleting remote tasks started ..." + str(web_id_list)
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],
                   "task_id_list": json.dumps(web_id_list), "origin": "gtg",}
         tags = requests.post(self.URLS['tasks']['delete'], params)
     
     def fetch_tags_from_server(self, ):
-        print "Fetching tags started ..."
+        #print "Fetching tags started ..."
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
         tags = requests.post(self.URLS['tags'], params)
@@ -554,9 +557,11 @@ class Backend(PeriodicImportBackend):
         """
         Converts a datetime object to a string in the format used by GTGOnline!
         """
-        date = date_obj.strftime(self.CONVERT_24_HR)
-        if date == self.GTG_NO_DATE:
+        if date_obj == self.GTG_NO_DATE:
             return ''
+        elif date_obj == self.GTG_SOMEDAY_DATE:
+            date_obj = self.GTGONLINE_SOMEDAY_DATE
+        date = date_obj.strftime(self.CONVERT_24_HR)
         return date
     
     def str_to_datetime(self, date_str, return_date = False, \
@@ -579,7 +584,7 @@ class Backend(PeriodicImportBackend):
         return datetime_obj
     
     def set_task(self, task):
-        print "BACKEND_GTGONLINE : Set task was called"
+        #print "BACKEND_GTGONLINE : Set task was called"
         #task.sync()
         self.save_state()
     
@@ -591,13 +596,13 @@ class Backend(PeriodicImportBackend):
         If you know the remote id of the task, give it in keyword arg 'web_id'
         """
         task_hash_list = self.hash_dict.get(task_id, None)
-        print "Task hash list = " + str(task_hash_list)
+        #print "Task hash list = " + str(task_hash_list)
         if task_hash_list == None:
             if task_object != None:
                 task = task_object
             else:
                 task = self.datastore.get_task(task_id)
-            print "For task_id = " + str(task_id) + " task = " + str(task)
+            #print "For task_id = " + str(task_id) + " task = " + str(task)
             task_hash = self.compute_task_hash(task, mode = self.LOCAL)
             #remote_ids = task.get_remote_ids()
             #web_id = remote_ids.get(self.get_id(), None)

@@ -157,7 +157,7 @@ class Backend(GenericBackend):
         @param task: the task object to save
         """
         
-        print "LOCALFILE: set_task was called"
+        #print "LOCALFILE: set_task was called"
         
         tid = task.get_id()
         # We create an XML representation of the task
