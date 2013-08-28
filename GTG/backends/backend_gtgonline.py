@@ -141,6 +141,9 @@ class Backend(PeriodicImportBackend):
             #print "Using requests 0.x"
             self.IS_REQUESTS_LATEST = False
             if requests.__version__[:4] != '0.14':
+                print "Backend GTGOnline! has been disabled \
+                because the requests module you're using is very old. \
+                Please update it (pip install requests)"
                 self.error_caught_abort(BackendSignals.ERRNO_NETWORK)
         
         pynotify.init("started")
@@ -459,10 +462,10 @@ class Backend(PeriodicImportBackend):
         
         local_task.set_start_date(Date(start_date))
         
-        #current_due_date = local_task.get_due_date()
-        #if current_due_date.is_fuzzy():
-            #print "Local task,= " + local_task.get_title() + " due date is FUZZY"
-            #due_date = self.get_fuzzy_date(current_due_date, due_date)
+        current_due_date = local_task.get_due_date()
+        if current_due_date.is_fuzzy():
+            print "Local task,= " + local_task.get_title() + " due date is FUZZY"
+            due_date = self.get_fuzzy_date(current_due_date, due_date)
         
         local_task.set_due_date(Date(due_date))
         new_tags = set(['@' + tag["name"] for tag in remote_task["tags"]])
@@ -603,11 +606,11 @@ class Backend(PeriodicImportBackend):
         return datetime_obj
     
     def get_fuzzy_date(self, current_due_date, due_date):
-        #print "Current due_date = " + str(current_due_date)
-        #print "New due date = " + str(due_date)
-        #print "FUzzy date in datetime = " + str(Date(current_due_date))
+        print "Current due_date = " + str(current_due_date)
+        print "New due date = " + str(Date(due_date))
+        print "FUzzy date in datetime = " + str(Date(current_due_date))
         are_both_same = Date(current_due_date) == Date(due_date)
-        #print "Are both same ? " + str(are_both_same)
+        print "Are both same ? " + str(are_both_same)
     
     def set_task(self, task):
         #print "BACKEND_GTGONLINE : Set task was called"
