@@ -62,8 +62,8 @@ class BackendFactory(Borg):
                                os.listdir(this_dir))
         # Create module names
         module_names = map(lambda f: f.replace(".py", ""), backend_files)
-        Log.debug("Backends found: " + str(module_names))
-        print "Backends = " + str(module_names)
+        #Log.debug("Backends found: " + str(module_names))
+        #print "Backends = " + str(module_names)
         # Load backend modules
         for module_name in module_names:
             extended_module_name = "GTG.backends." + module_name

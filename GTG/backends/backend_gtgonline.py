@@ -35,7 +35,7 @@ import cookielib
 
 import pynotify
 
-from dateutil.tz import tzutc, tzlocal
+#from dateutil.tz import tzutc, tzlocal
 from lxml import html
 from re import sub
 from hashlib import md5
@@ -86,6 +86,8 @@ class Backend(PeriodicImportBackend):
     # USE BELOW ONLY IF ACCESSING LOCALHOST INSIDE CAMPUS
     #NO_PROXY = {'no': 'pass'}
     
+    IS_REQUESTS_LATEST = True
+    
     BASE_URL = "http://gtgonline-parinporecha.rhcloud.com/"
     URLS = {
         'auth': BASE_URL + 'user/auth_gtg/',
@@ -135,6 +137,11 @@ class Backend(PeriodicImportBackend):
         #print "Data path = \n****\n****\n" + str(self.hash_dict_path) + "\n****\n****\n"
         self.hash_dict = self._load_pickled_file(self.hash_dict_path, \
                                                  default_value = {})
+        if requests.__version__ < '1.0':
+            #print "Using requests 0.x"
+            self.IS_REQUESTS_LATEST = False
+            if requests.__version__[:4] != '0.14':
+                self.error_caught_abort(BackendSignals.ERRNO_NETWORK)
         
         pynotify.init("started")
         self.try_auth()
@@ -148,16 +155,16 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         auth_response = requests.post(self.URLS['auth'], params)
         if auth_response.text != '1':
-            self.auth_has_failed()
+            self.error_caught_abort(BackendSignals.ERRNO_AUTHENTICATION)
     
-    def auth_has_failed(self):
+    def error_caught_abort(self, error):
         """
         Provided credentials are not valid.
         Disable this instance and show error to user
         """
         #Log.error('Failed to authenticate')
         BackendSignals().backend_failed(self.get_id(),
-                        BackendSignals.ERRNO_AUTHENTICATION)
+                        error)
         self.quit(disable=True)
         
     def do_periodic_import(self, ):
@@ -167,7 +174,7 @@ class Backend(PeriodicImportBackend):
         #tags = self.fetch_tags_from_server()
         #self.process_tags(tags)
         self.save_state()
-        pynotify.Notification("Sync Done", "hell yeah", "dialog-info").show()
+        pynotify.Notification("Sync Done", "Added: 5 tasks\nUpdated: 9 tasks\nDeleted: 2 tasks\n(^^This isn't real, just a representation)", "dialog-info").show()
         
     def save_state(self):
         '''Saves the state of the synchronization'''
@@ -193,9 +200,11 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         tasks = requests.post(self.URLS['tasks']['get'], params)
         #print "response received = " + str(tasks.json)
-        return tasks.json
+        if not self.IS_REQUESTS_LATEST:
+            return tasks.json
+        return tasks.json()
     
-    def process_tasks(self, remote_tasks):
+    def process_tasks(self, fetched_remote_tasks):
         """
         The main method.
         Based on hash dictionary stored locally and the JSON response received
@@ -218,7 +227,8 @@ class Backend(PeriodicImportBackend):
         server_id_dict = {}
         local_id_dict = {}
         old_local_tasks = []
-        for task in remote_tasks:
+        #print "Remote tasks = " + str(fetched_remote_tasks)
+        for task in fetched_remote_tasks:
             server_id_dict[str(task['id'])] = task
         
         #print "server id dict = " + str(server_id_dict)
@@ -316,7 +326,9 @@ class Backend(PeriodicImportBackend):
         ids = requests.post(self.URLS['tasks']['new'], \
                             data = { key: str(value) for key, value in params.items() })
         #print "ids received = " + str(ids.json)
-        return ids.json
+        if not self.IS_REQUESTS_LATEST:
+            return ids.json
+        return ids.json()
     
     def add_remote_id_to_sync_details(self, id_dict):
         """
@@ -444,7 +456,14 @@ class Backend(PeriodicImportBackend):
                                         return_date = True, without_time = True)
         due_date = self.str_to_datetime(remote_task["due_date"], \
                                         return_date = True, without_time = True)
+        
         local_task.set_start_date(Date(start_date))
+        
+        #current_due_date = local_task.get_due_date()
+        #if current_due_date.is_fuzzy():
+            #print "Local task,= " + local_task.get_title() + " due date is FUZZY"
+            #due_date = self.get_fuzzy_date(current_due_date, due_date)
+        
         local_task.set_due_date(Date(due_date))
         new_tags = set(['@' + tag["name"] for tag in remote_task["tags"]])
         #print "new_tags = " + str(new_tags)
@@ -537,7 +556,7 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         tags = requests.post(self.URLS['tags'], params)
         #print "response received = " + str(tags.json)
-        return tags.json
+        return tags.json()
     
     def process_tags(self, tags):
         print "Tags = " + str(tags)
@@ -582,6 +601,13 @@ class Backend(PeriodicImportBackend):
         if return_date:
             return datetime_obj.date()
         return datetime_obj
+    
+    def get_fuzzy_date(self, current_due_date, due_date):
+        #print "Current due_date = " + str(current_due_date)
+        #print "New due date = " + str(due_date)
+        #print "FUzzy date in datetime = " + str(Date(current_due_date))
+        are_both_same = Date(current_due_date) == Date(due_date)
+        #print "Are both same ? " + str(are_both_same)
     
     def set_task(self, task):
         #print "BACKEND_GTGONLINE : Set task was called"
