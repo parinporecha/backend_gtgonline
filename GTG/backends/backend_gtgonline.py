@@ -409,8 +409,8 @@ class Backend(PeriodicImportBackend):
         #print "Updating remote task started ..."
         start_date = self.convert_date_to_str(task.get_start_date().date())
         due_date = self.convert_date_to_str(task.get_due_date().date())
-        print "Due Date = " + str(due_date)
-        print "Is due date fuzzy ? = " + str(task.get_due_date().is_fuzzy())
+        #print "Due Date = " + str(due_date)
+        #print "Is due date fuzzy ? = " + str(task.get_due_date().is_fuzzy())
         task_list = [
             {
                 "task_id": task_id,
@@ -606,11 +606,11 @@ class Backend(PeriodicImportBackend):
         return datetime_obj
     
     def get_fuzzy_date(self, current_due_date, due_date):
-        print "Current due_date = " + str(current_due_date)
-        print "New due date = " + str(Date(due_date).date())
-        print "FUzzy date in datetime = " + str(Date(current_due_date).date())
+        #print "Current due_date = " + str(current_due_date)
+        #print "New due date = " + str(Date(due_date).date())
+        #print "FUzzy date in datetime = " + str(Date(current_due_date).date())
         if Date(current_due_date).date() == Date(due_date).date():
-            print "Both are same"
+            #print "Both are same"
             return current_due_date
         return due_date
     

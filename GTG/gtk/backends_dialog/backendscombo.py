@@ -68,7 +68,7 @@ class BackendsCombo(gtk.ComboBoxEntry):
         '''
         self.liststore.clear()
         backend_types = BackendFactory().get_all_backends()
-        print "backend_types = " + str(backend_types)
+        #print "backend_types = " + str(backend_types)
         for name, module in backend_types.iteritems():
             #print "name = " + str(name) + " module = " + str(module)
             # FIXME: Disable adding another localfile backend.
