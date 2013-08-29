@@ -462,10 +462,10 @@ class Backend(PeriodicImportBackend):
         
         local_task.set_start_date(Date(start_date))
         
-        #current_due_date = local_task.get_due_date()
-        #if current_due_date.is_fuzzy():
-            #print "Local task,= " + local_task.get_title() + " due date is FUZZY"
-            #due_date = self.get_fuzzy_date(current_due_date, due_date)
+        current_due_date = local_task.get_due_date()
+        if current_due_date.is_fuzzy():
+            print "Local task,= " + local_task.get_title() + " due date is FUZZY"
+            due_date = self.get_fuzzy_date(current_due_date, due_date)
         
         local_task.set_due_date(Date(due_date))
         new_tags = set(['@' + tag["name"] for tag in remote_task["tags"]])
