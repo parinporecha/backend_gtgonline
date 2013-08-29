@@ -102,8 +102,8 @@ class Backend(PeriodicImportBackend):
     
     CONVERT_24_HR = '%d/%m/%y'
     CONVERT_24_HR_WITH_TIME = '%d/%m/%y %H:%M:%S'
-    GTG_NO_DATE = datetime.date.max
-    GTG_SOMEDAY_DATE = datetime.date.max - datetime.timedelta(1)
+    GTG_NO_DATE = datetime.date.max - datetime.timedelta(1)
+    GTG_SOMEDAY_DATE = datetime.date.max
     GTGONLINE_SOMEDAY_DATE = datetime.datetime.now() + datetime.timedelta(30)
     
     LOCAL = 0
@@ -462,10 +462,10 @@ class Backend(PeriodicImportBackend):
         
         local_task.set_start_date(Date(start_date))
         
-        current_due_date = local_task.get_due_date()
-        if current_due_date.is_fuzzy():
-            print "Local task,= " + local_task.get_title() + " due date is FUZZY"
-            due_date = self.get_fuzzy_date(current_due_date, due_date)
+        #current_due_date = local_task.get_due_date()
+        #if current_due_date.is_fuzzy():
+            #print "Local task,= " + local_task.get_title() + " due date is FUZZY"
+            #due_date = self.get_fuzzy_date(current_due_date, due_date)
         
         local_task.set_due_date(Date(due_date))
         new_tags = set(['@' + tag["name"] for tag in remote_task["tags"]])
@@ -581,8 +581,8 @@ class Backend(PeriodicImportBackend):
         """
         if date_obj == self.GTG_NO_DATE:
             return ''
-        elif date_obj == self.GTG_SOMEDAY_DATE:
-            date_obj = self.GTGONLINE_SOMEDAY_DATE
+        #elif date_obj == self.GTG_SOMEDAY_DATE:
+            #date_obj = self.GTGONLINE_SOMEDAY_DATE
         date = date_obj.strftime(self.CONVERT_24_HR)
         return date
     
