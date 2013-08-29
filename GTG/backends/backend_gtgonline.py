@@ -607,10 +607,12 @@ class Backend(PeriodicImportBackend):
     
     def get_fuzzy_date(self, current_due_date, due_date):
         print "Current due_date = " + str(current_due_date)
-        print "New due date = " + str(Date(due_date))
-        print "FUzzy date in datetime = " + str(Date(current_due_date))
-        are_both_same = Date(current_due_date) == Date(due_date)
-        print "Are both same ? " + str(are_both_same)
+        print "New due date = " + str(Date(due_date).date())
+        print "FUzzy date in datetime = " + str(Date(current_due_date).date())
+        if Date(current_due_date).date() == Date(due_date).date():
+            print "Both are same"
+            return current_due_date
+        return due_date
     
     def set_task(self, task):
         #print "BACKEND_GTGONLINE : Set task was called"
