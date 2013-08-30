@@ -112,7 +112,7 @@ class Backend(PeriodicImportBackend):
     WEB_STATUS_TO_GTG = {
         0: 'Active',
         1: 'Done',
-        2: 'Dismissed',
+        2: 'Dismiss',
     }
     
     def __init__(self, params):
@@ -190,6 +190,8 @@ class Backend(PeriodicImportBackend):
             #else:
                 #print "!!! BAD ID !!! = " + task_id
         
+        print "save_state called"
+        print "hash_dict = " + str(self.hash_dict)
         self._store_pickled_file(self.data_path, self.sync_engine)
         self._store_pickled_file(self.hash_dict_path, self.hash_dict)
         
@@ -420,13 +422,13 @@ class Backend(PeriodicImportBackend):
                 "due_date": due_date,
                 "status": task.get_status(),
                 "subtask_ids": self.get_subtask_remote_ids(task),
-                "origin": "gtg",
             }
         ]
         params = {
             "email": self._parameters["username"],
             "password": self._parameters["password"],
             "task_list": json.dumps(task_list),
+            "origin": "gtg",
         }
         response = requests.post(self.URLS['tasks']['update'], params)
         
@@ -453,7 +455,10 @@ class Backend(PeriodicImportBackend):
         #print "Updating local task started ..."
         local_task.set_title(_(remote_task["name"]))
         local_task.set_text(_(remote_task["description"]))
-        local_task.set_status(remote_task["status"])
+        
+        print "Task Status = " + str(remote_task["status"])
+        status = self.WEB_STATUS_TO_GTG.get(remote_task["status"], 'Active')
+        local_task.set_status(status)
         
         start_date = self.str_to_datetime(remote_task["start_date"], \
                                         return_date = True, without_time = True)
@@ -579,7 +584,7 @@ class Backend(PeriodicImportBackend):
         """
         Converts a datetime object to a string in the format used by GTGOnline!
         """
-        if date_obj == self.GTG_NO_DATE:
+        if date_obj == self.GTG_NO_DATE or date_obj == self.GTG_SOMEDAY_DATE:
             return ''
         #elif date_obj == self.GTG_SOMEDAY_DATE:
             #date_obj = self.GTGONLINE_SOMEDAY_DATE
