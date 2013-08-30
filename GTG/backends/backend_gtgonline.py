@@ -157,6 +157,8 @@ class Backend(PeriodicImportBackend):
         params = {"email": self._parameters["username"],
                   "password": self._parameters["password"],}
         auth_response = requests.post(self.URLS['auth'], params)
+        if auth_response.status_code != 200:
+            self.error_caught_abort(BackendSignals.ERRNO_NETWORK)
         if auth_response.text != '1':
             self.error_caught_abort(BackendSignals.ERRNO_AUTHENTICATION)
     
@@ -190,8 +192,8 @@ class Backend(PeriodicImportBackend):
             #else:
                 #print "!!! BAD ID !!! = " + task_id
         
-        print "save_state called"
-        print "hash_dict = " + str(self.hash_dict)
+        #print "save_state called"
+        #print "hash_dict = " + str(self.hash_dict)
         self._store_pickled_file(self.data_path, self.sync_engine)
         self._store_pickled_file(self.hash_dict_path, self.hash_dict)
         
@@ -205,9 +207,12 @@ class Backend(PeriodicImportBackend):
                   "password": self._parameters["password"],}
         tasks = requests.post(self.URLS['tasks']['get'], params)
         #print "response received = " + str(tasks.json)
-        if not self.IS_REQUESTS_LATEST:
-            return tasks.json
-        return tasks.json()
+        if tasks.status_code == 200:
+            #print "json = " + str(tasks.json())
+            if not self.IS_REQUESTS_LATEST:
+                return tasks.json
+            return tasks.json()
+        return ''
     
     def process_tasks(self, fetched_remote_tasks):
         """
@@ -456,7 +461,7 @@ class Backend(PeriodicImportBackend):
         local_task.set_title(_(remote_task["name"]))
         local_task.set_text(_(remote_task["description"]))
         
-        print "Task Status = " + str(remote_task["status"])
+        #print "Task Status = " + str(remote_task["status"])
         status = self.WEB_STATUS_TO_GTG.get(remote_task["status"], 'Active')
         local_task.set_status(status)
         
@@ -469,7 +474,7 @@ class Backend(PeriodicImportBackend):
         
         current_due_date = local_task.get_due_date()
         if current_due_date.is_fuzzy():
-            print "Local task,= " + local_task.get_title() + " due date is FUZZY"
+            #print "Local task,= " + local_task.get_title() + " due date is FUZZY"
             due_date = self.get_fuzzy_date(current_due_date, due_date)
         
         local_task.set_due_date(Date(due_date))
